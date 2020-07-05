@@ -1,8 +1,8 @@
 import torch
 import util
 from torch.utils.tensorboard import SummaryWriter
-# from tqdm.notebook import tqdm
-from tqdm import tqdm
+from torchvision.utils import make_grid
+from tqdm.autonotebook import tqdm
 from collections import defaultdict
 import time
 from pathlib import Path
@@ -28,7 +28,8 @@ def train(train_dataloader, val_dataloader, model: torch.nn.Module, epochs: int,
 			optimizer.zero_grad()
 
 			img = img.to(device).float()
-			mask = mask.to(device).long().unsqueeze(dim=1)
+			# mask = mask.to(device).long().unsqueeze(dim=1)
+			mask = mask.to(device).long() # colab에서는 이렇게..
 			outputs = model(img)
 			loss = loss_func(outputs, mask)
 			with torch.no_grad():
@@ -77,10 +78,16 @@ def train(train_dataloader, val_dataloader, model: torch.nn.Module, epochs: int,
 					                  global_step=e * val_dataloader.batch_size + j)
 					writer.add_scalars('Val', metrics_val, global_step=e * val_dataloader.batch_size + j)
 
+				if j == len(val_dataloader):
+					pred_masks = (outputs_val > 0.5).float().squeeze(dim=1)
+					writer.add_image('Val_ori_img', img_val[0].detach().numpy(), dataformats='CHW', global_step=(e+1) * val_dataloader.batch_size)
+					writer.add_image('Val_ori_mask', mask_val[0].detach().numpy(), dataformats='HW', global_step=(e+1) * val_dataloader.batch_size)
+					writer.add_image('Val_pred_mask', pred_masks[0].detach().numpy(), dataformats='HW', global_step=(e+1) * val_dataloader.batch_size)
+
 		if not Path(model_path).exists():
 			Path(model_path).mkdir()
 
 		writer.close()
-		util.save_model(model, optimizer, model_path, epoch=e, loss=loss_sum)
+		util.save_model(model, optimizer, model_path, f'Unet_{e}_{loss_sum}', epoch=e, loss=loss_sum)
 		end = time.time()
 		print('{}th epoch is over. Elasped Time:{} min.'.format(e, (start-end)//60))

@@ -13,7 +13,7 @@ from albumentations.pytorch.transforms import ToTensorV2
 if __name__ == '__main__':
 
 	root_path = 'Kvasir-SEG'
-	batch_size = 1
+	batch_size = 2
 	epochs = 30
 	device = torch.device('cuda') if torch.cuda.is_available() else torch.device['cpu']
 
