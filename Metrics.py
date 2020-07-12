@@ -5,7 +5,8 @@ import torch.nn as nn
 
 def Dice(pred, target, dims=(2 ,3), reduction='mean'):
 	smooth = 1e-4
-	pred = nn.Sigmoid()(pred)
+	pred = nn.Softmax(dim=1)(pred)
+	# pred = nn.Sigmoid()(pred)
 	intersection = (pred * target).sum(dim=dims)
 	union = pred.sum(dim=dims) + target.sum(dim=dims)
 

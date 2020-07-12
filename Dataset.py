@@ -20,16 +20,39 @@ class KvasirSegDataset(Dataset):
 	def __getitem__(self, item):
 		img = cv2.imread(self.img_list[item])
 		img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-		mask = cv2.imread(self.img_list[item])
+		mask = cv2.imread(self.mask_list[item])
 		mask = cv2.cvtColor(mask, cv2.COLOR_BGR2GRAY)
 		mask = (mask > 100).astype(np.uint8)
+
 		if isinstance(self.transform, A.Compose):
 			aum = self.transform(image=img, mask=mask)
-			img, mask = aum['image'], aum['mask']
+			img, mask = aum['image'], aum['mask'].unsqueeze(dim=0)
 
-		return img, mask
+			return img, mask
 
 	def __len__(self):
 		return len(self.img_list)
+
+
+
+class TestKvasirSegDataset(Dataset):
+	def __init__(self, root: str, transform=None):
+		super(TestKvasirSegDataset, self).__init__()
+		self.img_list = sorted([str(p) for p in (Path(root) / 'images').glob('*.jpg')])
+		self.transform = transform
+
+	def __getitem__(self, item):
+		img = cv2.imread(self.img_list[item])
+		img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+
+		if isinstance(self.transform, A.Compose):
+			aum = self.transform(image=img)
+			img = aum['image']
+
+			return img, self.img_list[item]
+
+	def __len__(self):
+		return len(self.img_list)
+
 
 
