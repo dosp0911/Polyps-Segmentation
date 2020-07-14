@@ -7,35 +7,45 @@ from predict import predict
 from torch.utils.data.dataloader import DataLoader
 from torch.utils.data import random_split
 import torch
-from util import load_model
 
 import albumentations as A
 from albumentations.pytorch.transforms import ToTensorV2
 
 if __name__ == '__main__':
+	train_path = 'Kvasir-SEG/train'
+	val_path = 'Kvasir-SEG/val'
 
-	root_path = 'Kvasir-SEG'
-	batch_size = 2
-	epochs = 30
+	batch_size = 8
+	start_epoch = 0
+	epochs = 130
 	device = torch.device('cuda') if torch.cuda.is_available() else torch.device['cpu']
+	print(device)
 
-	transforms = A.Compose([
-		# A.RandomCrop(224, 224, p=0.5),
-		# A.RandomScale(p=0.5),
+	t_transforms = A.Compose([
 		# A.RandomBrightnessContrast(p=0.5),
-		# A.HorizontalFlip(p=0.5),
-		# A.ShiftScaleRotate(),
+		A.OneOf([A.HorizontalFlip(p=0.5), A.VerticalFlip(p=0.5)], p=0.5),
+		A.RandomRotate90(p=0.5),
+		A.ShiftScaleRotate(p=0.5),
 		A.Resize(256, 256),
 		A.Normalize(),
 		ToTensorV2()
 	])
 
-	dataset = KvasirSegDataset(root_path, transforms)
-	train_size = int(len(dataset)*0.8)
-	val_size = len(dataset) - train_size
-	train_dataset, val_dataset = random_split(dataset, [train_size, val_size])
-	train_dataloader = DataLoader(train_dataset, batch_size, num_workers=0, pin_memory=True)
-	val_dataloader = DataLoader(val_dataset, batch_size, num_workers=0, pin_memory=True)
+	v_transforms = A.Compose([
+		# A.RandomBrightnessContrast(p=0.5),
+		# A.OneOf([A.HorizontalFlip(p=0.5), A.VerticalFlip(p=0.5)], p=0.5),
+		# A.RandomRotate90(p=0.5),
+		# A.ShiftScaleRotate(p=0.5),
+		A.Resize(256, 256),
+		A.Normalize(),
+		ToTensorV2()
+	])
+
+	train_dataset = KvasirSegDataset(train_path, t_transforms)
+	val_dataset = KvasirSegDataset(val_path, v_transforms)
+
+	train_dataloader = DataLoader(train_dataset, batch_size)
+	val_dataloader = DataLoader(val_dataset, batch_size)
 
 
 	in_classes = 3
@@ -45,7 +55,8 @@ if __name__ == '__main__':
 	metrics = {'iou': iou}
 
 	optim = torch.optim.SGD(model.parameters(), lr=0.001, momentum=0.99, weight_decay=0.0005)
-
-	# train(train_dataloader, val_dataloader, model, epochs, criteria, metrics, optim, device)
+	lr_scheduler = torch.optim.lr_scheduler.CyclicLR(optim, base_lr=0.001, max_lr= 0.01)
+	lr_s = torch.optim.lr_scheduler.CosineAnnealingLR(optim, 100, 0.001)
+	train(train_dataloader, val_dataloader, model, epochs, criteria, metrics, optim, scheduler=lr_s, device=device)
 	predict(model, 'D:\\Kvasir-SEG', device,
 	        'C:\\Users\\DSKIM\\Google 드라이브\\AI\\medical-projects\\Kvasir-Seg\\unet_aug_models\\Unet_129_21.pth')
