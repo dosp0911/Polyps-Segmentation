@@ -4,9 +4,12 @@ from torch.utils.tensorboard import SummaryWriter
 from tqdm.autonotebook import tqdm
 from collections import defaultdict
 import time
+from pathlib import Path
 from datetime import datetime
 import numpy as np
 import mlflow
+
+
 
 def mlflow_init(batch_size, epochs, device, optim, lr_scheduler=None):
 	optim_params = optim.state_dict()['param_groups'][0].copy()
@@ -74,14 +77,14 @@ def train(train_dataloader, val_dataloader, model: torch.nn.Module, epochs: int,
 					writer.add_scalar('Train_loss', loss_sum / (i + 1), global_step=g_step)
 					writer.add_scalars('Train', mMetrics, global_step=g_step)
 					for name, param in model.named_parameters():
-						writer.add_histogram(name, param.clone().cpu().detach().numpy(),
-						                            global_step=g_step)
+						writer.add_histogram(name, param.clone().cpu().detach().numpy(), global_step=g_step)
 					mlflow.log_metric('Train Loss', loss_sum.item() / (i + 1))
 					mlflow.log_metrics(mMetrics, step=g_step)
 
 			if scheduler is not None:
-				scheduler.step()
-			logger.info(f'scheduler:{scheduler}')
+				scheduler.step(e)
+				print(f'scheduler:{scheduler} lr:{scheduler.get_lr()} last_lr:{scheduler.get_last_lr()}')
+				logger.info(f'scheduler:{scheduler} lr:{scheduler.get_lr()} last_lr:{scheduler.get_last_lr()}')
 
 			logger.info('--------------------------- Validate Start ------------------------------------')
 			# Evaluate
@@ -105,7 +108,7 @@ def train(train_dataloader, val_dataloader, model: torch.nn.Module, epochs: int,
 						metrics_str += f'\t{k}:{v / (j + 1)}'
 						mMetrics_val[k] = v.item() / (i + 1)
 
-					g_step_val = (e * len(val_dataloader) * val_dataloader.batch_size) + (i * val_dataloader.batch_size)
+					g_step_val = (e * len(val_dataloader) * val_dataloader.batch_size) + (j * val_dataloader.batch_size)
 					logger.info(f'Epoch:{e} Step:{g_step_val} Val Loss: {loss_sum_val / (j + 1)} Metrics: {metrics_str}')
 					if j % print_iter == 0:
 						print(f'Epoch:{e} Val Loss: {loss_sum_val / (j + 1)} {metrics_str}')
@@ -129,5 +132,11 @@ def train(train_dataloader, val_dataloader, model: torch.nn.Module, epochs: int,
 			end = time.time()
 			print('{}th epoch is over. Elasped Time:{} min.'.format(e, (end - start) // 60))
 			logger.info('{}th epoch is over. Elasped Time:{} min.'.format(e, (end - start) // 60))
-		print("Uploading TensorBoard events as a run artifact...")
-		mlflow.log_artifacts(logs_path, artifact_path="events")
+
+
+		artifact_folder = f"events_{c_time}"
+		if not Path(artifact_folder).exists():
+			Path(artifact_folder).mkdir()
+		mlflow.log_artifacts(logs_path, artifact_path=artifact_folder)
+		logger.info(f"Uploading TensorBoard events as a run artifact...{artifact_folder}")
+		print(f"Uploading TensorBoard events as a run artifact...{artifact_folder}")
