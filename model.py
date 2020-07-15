@@ -4,83 +4,99 @@ import torch.nn as nn
 from torchsummary import summary
 
 
-class Con2D(nn.Module):
-    def __init__(self, in_c, out_c, k_size, padding=1, is_bn=True):
-        super(Con2D, self).__init__()
+class BnReLu(nn.Module):
+    def __init__(self, in_num):
+        super(BnReLu, self).__init__()
 
-        if is_bn:
-            self.sequential = nn.Sequential(
-                nn.Conv2d(in_c, out_c, k_size, padding=padding),
-                nn.BatchNorm2d(out_c),
-                nn.ReLU(inplace=True),
-                nn.Conv2d(out_c, out_c, k_size, padding=padding),
-                nn.BatchNorm2d(out_c),
-                nn.ReLU(inplace=True)
-            )
-        else:
-            self.sequential = nn.Sequential(
-                nn.Conv2d(in_c, out_c, k_size, padding=padding),
-                nn.ReLU(inplace=True),
-                nn.Conv2d(out_c, out_c, k_size, padding=padding),
-                nn.ReLU(inplace=True)
-            )
+        self.sequential = nn.Sequential(
+            nn.BatchNorm2d(in_num),
+            nn.ReLU(inplace=True)
+        )
 
     def forward(self, x):
         return self.sequential(x)
 
 
-class Unet(nn.Module):
+class ResidualBlock(nn.Module):
+    def __init__(self, in_c, out_c, stride):
+        super(ResidualBlock, self).__init__()
+        self.conv1 = nn.Conv2d(in_c, out_c, 1, stride=stride)
+
+    def forward(self, x):
+        return self.conv1(x)
+
+
+class Block(nn.Module):
+    def __init__(self, in_c, out_c, k_size, s1=1, s2=1, r_s=1, is_first=False, padding=1):
+        super(Block, self).__init__()
+        self.residual_block = ResidualBlock(in_c, out_c, stride=r_s)
+
+        if is_first:
+            self.sequential = nn.Sequential(
+                nn.Conv2d(in_c, out_c, k_size, stride=s1, padding=padding),
+                BnReLu(out_c),
+                nn.Conv2d(out_c, out_c, k_size, stride=s2, padding=padding),
+            )
+        else:
+            self.sequential = nn.Sequential(
+                BnReLu(in_c),
+                nn.Conv2d(in_c, out_c, k_size, stride=s1, padding=padding),
+                BnReLu(out_c),
+                nn.Conv2d(out_c, out_c, k_size, stride=s2, padding=padding)
+            )
+
+    def forward(self, x):
+        identity = self.residual_block(x)
+        x = identity + self.sequential(x)
+        return x
+
+
+class ResUnet(nn.Module):
     def __init__(self, in_channels, out_channels):
-        super(Unet, self).__init__()
+        super(ResUnet, self).__init__()
 
-        self.con_block_1 = Con2D(in_channels, 64, 3)
-        self.con_block_2 = Con2D(64, 128, 3)
-        self.con_block_3 = Con2D(128, 256, 3)
-        self.con_block_4 = Con2D(256, 512, 3)
-        self.con_block_5 = Con2D(512, 1024, 3)
+        self.enc_block1 = Block(in_channels, 64, 3, is_first=True)
+        self.enc_block2 = Block(64, 128, 3, 2, 1, 2)
+        self.enc_block3 = Block(128, 256, 3, 2, 1, 2)
 
-        self.exp_block_4 = Con2D(1024, 512, 3, is_bn=False)
-        self.exp_block_3 = Con2D(512, 256, 3, is_bn=False)
-        self.exp_block_2 = Con2D(256, 128, 3, is_bn=False)
-        self.exp_block_1 = Con2D(128, 64, 3, is_bn=False)
+        self.bridge = Block(256, 512, 3, 2, 1, 2)
 
-        self.deconv_4 = nn.ConvTranspose2d(1024, 512, 2, stride=2)
-        self.deconv_3 = nn.ConvTranspose2d(512, 256, 2, stride=2)
-        self.deconv_2 = nn.ConvTranspose2d(256, 128, 2, stride=2)
-        self.deconv_1 = nn.ConvTranspose2d(128, 64, 2, stride=2)
+        self.up_sample3 = nn.UpsamplingBilinear2d(scale_factor=2)
+        self.up_sample2 = nn.UpsamplingBilinear2d(scale_factor=2)
+        self.up_sample1 = nn.UpsamplingBilinear2d(scale_factor=2)
+        self.dec_block3 = Block(512+256, 256, 3)
+        self.dec_block2 = Block(256+128, 128, 3)
+        self.dec_block1 = Block(128+64, 64, 3)
 
         self.final_layer = nn.Conv2d(64, out_channels, 1)
 
         self.init_weights()
 
     def forward(self, x):
-        con_block_1_out = self.con_block_1(x)
-        x = nn.MaxPool2d(2, stride=2)(con_block_1_out)
-        con_block_2_out = self.con_block_2(x)
-        x = nn.MaxPool2d(2, stride=2)(con_block_2_out)
-        con_block_3_out = self.con_block_3(x)
-        x = nn.MaxPool2d(2, stride=2)(con_block_3_out)
-        con_block_4_out = self.con_block_4(x)
-        x = nn.MaxPool2d(2, stride=2)(con_block_4_out)
-        x = self.con_block_5(x)
 
-        x = self.deconv_4(x)
-        x = torch.cat([con_block_4_out, x], dim=1)
-        x = self.exp_block_4(x)
+        ## encoder
+        enc_out1 = self.enc_block1(x)
+        enc_out2 = self.enc_block2(enc_out1)
+        enc_out3 = self.enc_block3(enc_out2)
 
-        x = self.deconv_3(x)
-        x = torch.cat([con_block_3_out, x], dim=1)
-        x = self.exp_block_3(x)
+        ## bridge
+        x = self.bridge(enc_out3)
 
-        x = self.deconv_2(x)
-        x = torch.cat([con_block_2_out, x], dim=1)
-        x = self.exp_block_2(x)
+        ## decoder
+        x = self.up_sample3(x)
+        x = torch.cat([enc_out3, x], dim=1)
+        x = self.dec_block3(x)
 
-        x = self.deconv_1(x)
-        x = torch.cat([con_block_1_out, x], dim=1)
-        x = self.exp_block_1(x)
+        x = self.up_sample2(x)
+        x = torch.cat([enc_out2, x], dim=1)
+        x = self.dec_block2(x)
+
+        x = self.up_sample1(x)
+        x = torch.cat([enc_out1, x], dim=1)
+        x = self.dec_block1(x)
 
         x = self.final_layer(x)
+        x = nn.Sigmoid()(x)
 
         return x
 
@@ -105,5 +121,11 @@ class Unet(nn.Module):
 
 if __name__ =="__main__":
     from torchsummary import summary
-    u_net = Unet(1, 4)
-    summary(u_net, (1, 256, 1600), device='cpu')
+    from torch.utils.tensorboard.writer import SummaryWriter
+    writer = SummaryWriter('model')
+    resunet = ResUnet(3, 1)
+    x = torch.rand((1, 3, 224, 224), dtype=torch.float, requires_grad=False)
+    writer.add_graph(resunet, x)
+    # out = resunet(x)
+    writer.close()
+    # summary(resunet, (3, 256, 256), device='cpu')

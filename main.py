@@ -1,6 +1,6 @@
 from Dataset import KvasirSegDataset
 from Metrics import iou, DICELoss
-from model import Unet
+from model import ResUnet
 from train import train
 
 from predict import predict
@@ -41,6 +41,8 @@ if __name__ == '__main__':
 		ToTensorV2()
 	])
 
+	aa = t_transforms.get_dict_with_id()
+
 	train_dataset = KvasirSegDataset(train_path, t_transforms)
 	val_dataset = KvasirSegDataset(val_path, v_transforms)
 
@@ -50,7 +52,7 @@ if __name__ == '__main__':
 
 	in_classes = 3
 	out_classes = 1
-	model = Unet(in_classes, out_classes)
+	model = ResUnet(in_classes, out_classes)
 	criteria = DICELoss()
 	metrics = {'iou': iou}
 
@@ -60,3 +62,4 @@ if __name__ == '__main__':
 	train(train_dataloader, val_dataloader, model, epochs, criteria, metrics, optim, scheduler=lr_s, device=device)
 	predict(model, 'D:\\Kvasir-SEG', device,
 	        'C:\\Users\\DSKIM\\Google 드라이브\\AI\\medical-projects\\Kvasir-Seg\\unet_aug_models\\Unet_129_21.pth')
+
