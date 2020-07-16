@@ -125,7 +125,8 @@ def train(train_dataloader, val_dataloader, model: torch.nn.Module, epochs: int,
 						                       global_step=g_step_val)
 
 			writer.close()
-			util.save_model(model, optimizer, model_path, f'Unet_{e}_{int(loss_sum)}.pth', epoch=e, loss=loss_sum)
+			util.save_model(model, optimizer, model_path, f'{model.__class__.__name__}{e}_{int(loss_sum)}.pth',
+			                epoch=e, loss=loss_sum)
 			end = time.time()
 			print('{}th epoch is over. Elasped Time:{} min.'.format(e, (end - start) // 60))
 			logger.info('{}th epoch is over. Elasped Time:{} min.'.format(e, (end - start) // 60))
@@ -135,9 +136,6 @@ def train(train_dataloader, val_dataloader, model: torch.nn.Module, epochs: int,
 			print(f'scheduler:{scheduler.state_dict()}')
 			logger.info(f'scheduler:{scheduler.state_dict()}')
 
-		artifact_folder = f"events_{c_time}"
-		if not Path(artifact_folder).exists():
-			Path(artifact_folder).mkdir()
-		mlflow.log_artifacts(logs_path, artifact_path=artifact_folder)
-		logger.info(f"Uploading TensorBoard events as a run artifact...{artifact_folder}")
-		print(f"Uploading TensorBoard events as a run artifact...{artifact_folder}")
+		mlflow.log_artifacts(logs_path)
+		logger.info(f"Uploading TensorBoard events as a run artifact...")
+		print(f"Uploading TensorBoard events as a run artifact...")

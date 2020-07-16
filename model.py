@@ -122,10 +122,11 @@ class ResUnet(nn.Module):
 if __name__ =="__main__":
     from torchsummary import summary
     from torch.utils.tensorboard.writer import SummaryWriter
-    writer = SummaryWriter('model')
+    # writer = SummaryWriter('model')
     resunet = ResUnet(3, 1)
-    x = torch.rand((1, 3, 224, 224), dtype=torch.float, requires_grad=False)
-    writer.add_graph(resunet, x)
-    # out = resunet(x)
-    writer.close()
+    print(resunet.__class__.__name__)
+    # x = torch.rand((1, 3, 224, 224), dtype=torch.float, requires_grad=False)
+    # writer.add_graph(resunet, x)
+    # # out = resunet(x)
+    # writer.close()
     # summary(resunet, (3, 256, 256), device='cpu')
