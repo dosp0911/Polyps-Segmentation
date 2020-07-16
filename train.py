@@ -10,13 +10,11 @@ import numpy as np
 import mlflow
 
 
-
-def mlflow_init(batch_size, epochs, device, optim, lr_scheduler=None):
+def mlflow_init(batch_size, epochs, device, optim):
 	optim_params = optim.state_dict()['param_groups'][0].copy()
 	optim_params.pop('params')
 	mlflow.log_params(optim_params)
-	if lr_scheduler is not None:
-		mlflow.log_params(lr_scheduler.state_dict())
+
 	mlflow.log_param('batch_size', batch_size)
 	mlflow.log_param('epochs', epochs)
 	mlflow.log_param('device', device)
@@ -27,7 +25,7 @@ def train(train_dataloader, val_dataloader, model: torch.nn.Module, epochs: int,
           model_path='models'):
 
 	c_time = datetime.today().strftime('%Y%m%d%H%M')
-	logger = util.get_logger(name=f'train_{c_time}.log', level='info', log_file_path=f'logs/train_{c_time}.log')
+	logger = util.get_logger(name=f'train_{c_time}.log', level='info', log_file_path=f'{logs_path}/train_{c_time}.log')
 
 	if optimizer is None:
 		optimizer = torch.optim.SGD(model.parameters(), momentum=0.99, lr=0.001, weight_decay=0.0005)
@@ -83,8 +81,7 @@ def train(train_dataloader, val_dataloader, model: torch.nn.Module, epochs: int,
 
 			if scheduler is not None:
 				scheduler.step(e)
-				print(f'scheduler:{scheduler} lr:{scheduler.get_lr()} last_lr:{scheduler.get_last_lr()}')
-				logger.info(f'scheduler:{scheduler} lr:{scheduler.get_lr()} last_lr:{scheduler.get_last_lr()}')
+
 
 			logger.info('--------------------------- Validate Start ------------------------------------')
 			# Evaluate
@@ -128,15 +125,17 @@ def train(train_dataloader, val_dataloader, model: torch.nn.Module, epochs: int,
 						                       global_step=g_step_val)
 
 			writer.close()
-			util.save_model(model, optimizer, model_path, f'Unet_{e}_{int(loss_sum)}.pth', epoch=e, loss=loss_sum)
+			util.save_model(model, optimizer, model_path, f'{model.__class__.__name__}{e}_{int(loss_sum)}.pth',
+			                epoch=e, loss=loss_sum)
 			end = time.time()
 			print('{}th epoch is over. Elasped Time:{} min.'.format(e, (end - start) // 60))
 			logger.info('{}th epoch is over. Elasped Time:{} min.'.format(e, (end - start) // 60))
 
+		if scheduler is not None:
+			mlflow.log_params(scheduler.state_dict())
+			print(f'scheduler:{scheduler.state_dict()}')
+			logger.info(f'scheduler:{scheduler.state_dict()}')
 
-		artifact_folder = f"events_{c_time}"
-		if not Path(artifact_folder).exists():
-			Path(artifact_folder).mkdir()
-		mlflow.log_artifacts(logs_path, artifact_path=artifact_folder)
-		logger.info(f"Uploading TensorBoard events as a run artifact...{artifact_folder}")
-		print(f"Uploading TensorBoard events as a run artifact...{artifact_folder}")
+		mlflow.log_artifacts(logs_path)
+		logger.info(f"Uploading TensorBoard events as a run artifact...")
+		print(f"Uploading TensorBoard events as a run artifact...")

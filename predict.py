@@ -11,11 +11,11 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 
 
-def predict(model, file_path, device, model_path=None, threshold=0.5):
+def predict(model, file_path, device, model_path=None, f_name='pred_masks',  threshold=0.5):
 
 	if model_path is not None:
 		model = load_model(model_path, model, device)
-	pred_mask_path = Path(file_path) / 'pred_masks'
+	pred_mask_path = Path(file_path) / f_name
 	if not pred_mask_path.exists():
 		pred_mask_path.mkdir()
 	transforms = A.Compose([
