@@ -25,6 +25,8 @@ def train(train_dataloader, val_dataloader, model: torch.nn.Module, epochs: int,
           model_path='models'):
 
 	c_time = datetime.today().strftime('%Y%m%d%H%M')
+	if not Path(logs_path).exists():
+		Path(logs_path).mkdir()
 	logger = util.get_logger(name=f'train_{c_time}.log', level='info', log_file_path=f'{logs_path}/train_{c_time}.log')
 
 	if optimizer is None:
@@ -37,7 +39,7 @@ def train(train_dataloader, val_dataloader, model: torch.nn.Module, epochs: int,
 
 	logger.info('------------------------------- Train start -----------------------------------------')
 	with mlflow.start_run():
-		mlflow_init(train_dataloader.batch_size, epochs, device, optimizer, scheduler)
+		mlflow_init(train_dataloader.batch_size, epochs, device, optimizer)
 		# mlflow.log_param
 		model.train()
 		model.to(device)
@@ -80,8 +82,7 @@ def train(train_dataloader, val_dataloader, model: torch.nn.Module, epochs: int,
 					mlflow.log_metrics(mMetrics, step=g_step)
 
 			if scheduler is not None:
-				scheduler.step(e)
-
+				scheduler.step()
 
 			logger.info('--------------------------- Validate Start ------------------------------------')
 			# Evaluate
