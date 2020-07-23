@@ -103,8 +103,8 @@ def train(train_dataloader, val_dataloader, model: torch.nn.Module, epochs: int,
 					metrics_str = ''
 					mMetrics_val = {}
 					for k, v in metrics_val.items():
-						metrics_str += f'\t{k}:{v / (j + 1)}'
-						mMetrics_val[k] = v.item() / (i + 1)
+						metrics_str += f'\t{k}_val:{v / (j + 1)}'
+						mMetrics_val[f'{k}_val'] = v.item() / (j + 1)
 
 					g_step_val = (e * len(val_dataloader) * val_dataloader.batch_size) + (j * val_dataloader.batch_size)
 					logger.info(f'Epoch:{e} Step:{g_step_val} Val Loss: {loss_sum_val / (j + 1)} Metrics: {metrics_str}')

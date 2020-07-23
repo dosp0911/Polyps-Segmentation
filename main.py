@@ -1,6 +1,6 @@
 from Dataset import KvasirSegDataset
 from Metrics import iou, DICELoss
-from model import ResUnet
+from model import ResUnetPP
 from train import train
 
 from predict import predict
@@ -51,7 +51,7 @@ if __name__ == '__main__':
 
 	in_classes = 3
 	out_classes = 1
-	model = ResUnet(in_classes, out_classes)
+	model = ResUnetPP(in_classes, out_classes)
 	criteria = DICELoss()
 	metrics = {'iou': iou}
 
