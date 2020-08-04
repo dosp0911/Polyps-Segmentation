@@ -2,30 +2,32 @@ from Dataset import KvasirSegDataset
 from Metrics import iou, DICELoss
 from model import ResUnetPP
 from train import train
-
+from util import load_model
+from eval import evaluate
 from predict import predict
 from torch.utils.data.dataloader import DataLoader
-from torch.utils.data import random_split
 import torch
 
 import albumentations as A
 from albumentations.pytorch.transforms import ToTensorV2
 
 if __name__ == '__main__':
-	train_path = 'Kvasir-SEG/train'
-	val_path = 'Kvasir-SEG/val'
+	train_path = 'D:\\Kvasir-SEG\\train'
+	val_path = 'D:\\Kvasir-SEG\\val'
 
-	batch_size = 8
+	batch_size = 2
 	start_epoch = 0
 	epochs = 130
-	device = torch.device('cuda') if torch.cuda.is_available() else torch.device['cpu']
+	device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+	# device = torch.device('cpu')
 	print(device)
+
 
 	t_transforms = A.Compose([
 		# A.RandomBrightnessContrast(p=0.5),
-		A.OneOf([A.HorizontalFlip(p=0.5), A.VerticalFlip(p=0.5)], p=0.5),
-		A.RandomRotate90(p=0.5),
-		A.ShiftScaleRotate(p=0.5),
+		# A.OneOf([A.HorizontalFlip(p=0.5), A.VerticalFlip(p=0.5)], p=0.5),
+		# A.RandomRotate90(p=0.5),
+		# A.ShiftScaleRotate(p=0.5),
 		A.Resize(256, 256),
 		A.Normalize(),
 		ToTensorV2()
@@ -55,10 +57,16 @@ if __name__ == '__main__':
 	criteria = DICELoss()
 	metrics = {'iou': iou}
 
-	# optim = torch.optim.SGD(model.parameters(), lr=0.001, momentum=0.99, weight_decay=0.0005)
+	optim = torch.optim.Adam(model.parameters(), lr=0.0001, weight_decay=0.0005)
 	# lr_scheduler = torch.optim.lr_scheduler.CyclicLR(optim, base_lr=0.001, max_lr= 0.01)
 	# lr_s = torch.optim.lr_scheduler.CosineAnnealingLR(optim, 100, 0.001)
-	# train(train_dataloader, val_dataloader, model, epochs, criteria, metrics, optim, scheduler=lr_s, device=device)
-	predict(model, 'D:\\Kvasir-SEG', device, f_name='Unet_aug4_pred_masks',
-	      model_path='C:\\Users\\DSKIM\\Google 드라이브\\AI\\medical-projects\\Kvasir-Seg\\unet_aug4_models\\Unet_199_22.pth')
+
+	# load_model('ResUnetPP_E99_8.pth', model, optim, map_location=device)
+	# train(train_dataloader, val_dataloader, model, epochs, criteria, metrics, optim, scheduler=None, device=device)
+
+	evaluate(model, 'D:\\Kvasir-SEG\\val', device, loss_func=criteria, f_name='ResUnetPP_aug_eval',
+	        model_path='ResUnetPP_E47_5.pth')
+
+	# predict(model, 'D:\\Kvasir-SEG\\train', device, f_name='ResUnetPP_aug_pred_masks',
+	#       model_path='D:\\Kvasir-SEG\\ResUnetPP_E240_5.pth')
 

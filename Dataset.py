@@ -28,7 +28,23 @@ class KvasirSegDataset(Dataset):
 			aum = self.transform(image=img, mask=mask)
 			img, mask = aum['image'], aum['mask'].unsqueeze(dim=0)
 
-			return img, mask
+		return {'image': img, 'mask': mask, 'path': self.img_list[item]}
+
+	def collate_fn(self, batch):
+		imgs = []
+		masks = []
+		paths = []
+
+		for data in batch:
+			for k, v in data.items():
+				if k == 'image':
+					imgs += v.unsqueeze(0)
+				elif k == 'mask':
+					masks += v.unsqueeze(0)
+				elif k == 'path':
+					paths.append(v)
+
+		return {'images': torch.stack(imgs, 0), 'masks': torch.stack(masks, 0), 'paths': paths}
 
 	def __len__(self):
 		return len(self.img_list)
@@ -49,7 +65,20 @@ class TestKvasirSegDataset(Dataset):
 			aum = self.transform(image=img)
 			img = aum['image']
 
-			return img, self.img_list[item]
+		return {'image': img, 'path': self.img_list[item]}
+
+	def collate_fn(self, batch):
+		imgs = []
+		paths = []
+
+		for data in batch:
+			for k, v in data.items():
+				if k == 'image':
+					imgs += v.unsqueeze(0)
+				elif k == 'path':
+					paths.append(v)
+
+		return {'images': torch.stack(imgs, 0), 'paths': paths}
 
 	def __len__(self):
 		return len(self.img_list)
