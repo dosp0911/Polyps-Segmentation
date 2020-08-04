@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 def predict(model, file_path, device, model_path=None, f_name='pred_masks',  threshold=0.5):
 
 	if model_path is not None:
-		model = load_model(model_path, model, device)
+		load_model(model_path, model, map_location=device)
 	pred_mask_path = Path(file_path) / f_name
 	if not pred_mask_path.exists():
 		pred_mask_path.mkdir()
@@ -31,7 +31,8 @@ def predict(model, file_path, device, model_path=None, f_name='pred_masks',  thr
 	model.eval()
 
 	with torch.no_grad():
-		for i, (imgs, paths) in tqdm(enumerate(d_loader), desc="Predict", total=len(d_loader)):
+		for i, data in tqdm(enumerate(d_loader), desc="Predict", total=len(d_loader)):
+			imgs, paths = data['images'], data['paths']
 			imgs = imgs.to(device).float()
 			pred_masks = model(imgs)
 			pred_masks = (pred_masks.cpu().detach().numpy() > threshold).astype(np.uint8)
