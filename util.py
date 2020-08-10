@@ -29,7 +29,7 @@ def get_logger(name='my_logger', level='warning', format='%(asctime)-15s %(messa
     formatter = logging.Formatter(format)
 
     if log_file_path is not None:
-        file_handler = logging.handlers.RotatingFileHandler(log_file_path / name, maxBytes=10 * 1024 * 1024)
+        file_handler = logging.handlers.RotatingFileHandler(os.path.join(log_file_path, name), maxBytes=10 * 1024 * 1024)
         file_handler.setFormatter(formatter)
         logger.addHandler(file_handler)
 
@@ -65,20 +65,21 @@ def load_model(path, model, optim=None, map_location=None):
   print('model is loaded!')
 
 
-def save_model(model, optim, save_path, model_name, epoch, loss, save_num=30):
+def save_model(model, optim, save_path, model_name, epoch, loss, metrics, save_num=5):
   if not Path(save_path).exists():
       Path(save_path).mkdir()
 
   models_list = sorted(list(Path(save_path).glob('*.pth')), key=os.path.getctime) # 생성된 날짜 순 삭제
 
   if len(models_list) > save_num:
-    Path(models_list[0]).unlink()
+    os.remove(str(models_list[0]))
 
   model_f_path = os.path.join(save_path, model_name)
   save_config = {
         'model_state_dict': model.state_dict(),
         'epoch': epoch,
-        'loss': loss
+        'loss': loss,
+        'scores': metrics
     }
   if optim is not None:
       save_config['optim_state_dict'] = optim.state_dict()

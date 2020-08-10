@@ -22,17 +22,17 @@ if __name__ == '__main__':
 	# device = torch.device('cpu')
 	print(device)
 
-
 	t_transforms = A.Compose([
-		# A.RandomBrightnessContrast(p=0.5),
-		# A.OneOf([A.HorizontalFlip(p=0.5), A.VerticalFlip(p=0.5)], p=0.5),
-		# A.RandomRotate90(p=0.5),
+		# A.Resize(280, 280),
+		A.RandomBrightnessContrast(p=1),
+		A.OneOf([A.HorizontalFlip(), A.VerticalFlip()], p=0.5),
+		A.RandomRotate90(p=0.5),
 		# A.ShiftScaleRotate(p=0.5),
+		# A.RandomCrop(256, 256, p=0.5),
 		A.Resize(256, 256),
 		A.Normalize(),
 		ToTensorV2()
 	])
-
 	v_transforms = A.Compose([
 		# A.RandomBrightnessContrast(p=0.5),
 		# A.OneOf([A.HorizontalFlip(p=0.5), A.VerticalFlip(p=0.5)], p=0.5),
@@ -57,15 +57,15 @@ if __name__ == '__main__':
 	criteria = DICELoss()
 	metrics = {'iou': iou}
 
-	optim = torch.optim.Adam(model.parameters(), lr=0.0001, weight_decay=0.0005)
+	# optim = torch.optim.Adam(model.parameters(), lr=0.0001, weight_decay=0.0005)
 	# lr_scheduler = torch.optim.lr_scheduler.CyclicLR(optim, base_lr=0.001, max_lr= 0.01)
 	# lr_s = torch.optim.lr_scheduler.CosineAnnealingLR(optim, 100, 0.001)
 
 	# load_model('ResUnetPP_E99_8.pth', model, optim, map_location=device)
 	# train(train_dataloader, val_dataloader, model, epochs, criteria, metrics, optim, scheduler=None, device=device)
 
-	evaluate(model, 'D:\\Kvasir-SEG\\val', device, loss_func=criteria, f_name='ResUnetPP_aug_eval',
-	        model_path='ResUnetPP_E47_5.pth')
+	evaluate(model, 'D:\\Kvasir-SEG\\val', device, loss_func=criteria, f_name='ResUnetPP_aug_eval4',
+	        model_path='ResUnetPP_E291_3.pth')
 
 	# predict(model, 'D:\\Kvasir-SEG\\train', device, f_name='ResUnetPP_aug_pred_masks',
 	#       model_path='D:\\Kvasir-SEG\\ResUnetPP_E240_5.pth')

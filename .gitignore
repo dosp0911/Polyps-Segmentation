@@ -5,3 +5,4 @@ Kvasir-SEG/
 .idea/
 .*
 !.gitignore
+*.pth

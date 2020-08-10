@@ -26,11 +26,14 @@ def train(train_dataloader, val_dataloader, model: torch.nn.Module, epochs: int,
         optimizer=None, scheduler=None, device=None, start_epochs: int = 0, print_iter=100, logs_path='logs',
         model_path='models', experiment_name='exp', run_name='run'):
 
+	best_scores = {k: 0 for k, v in metrics.items()}
+	is_best = {k: False for k, v in metrics.items()}
+
 	c_time = util.get_current_time_KST()
 
 	if not Path(logs_path).exists():
 		Path(logs_path).mkdir()
-	logger = util.get_logger(name=f'train_{c_time}.log', level='info', log_file_path=f'{logs_path}/train_{c_time}.log')
+	logger = util.get_logger(name=f'train_{c_time}.log', level='info', log_file_path=logs_path, is_stream=False)
 
 	if optimizer is None:
 		optimizer = torch.optim.SGD(model.parameters(), momentum=0.99, lr=0.001, weight_decay=0.0005)
@@ -42,13 +45,13 @@ def train(train_dataloader, val_dataloader, model: torch.nn.Module, epochs: int,
 	logger.info(f'device:{device}')
 
 	logger.info('------------------------------- Train start -----------------------------------------')
+	writer = SummaryWriter(logs_path)
 	with mlflow.start_run(run_name=run_name):
 		mlflow_init(train_dataloader.batch_size, epochs, device, optimizer, experiment_name)
 		model.train()
 		for e in tqdm(range(start_epochs, epochs), desc='Total'):
 			start = time.time()
 			metrics_ = defaultdict(int)
-			writer = SummaryWriter(logs_path)
 			loss_sum = 0
 			for i, data in tqdm(enumerate(train_dataloader), desc='Train', total=len(train_dataloader)):
 				optimizer.zero_grad()
@@ -88,6 +91,7 @@ def train(train_dataloader, val_dataloader, model: torch.nn.Module, epochs: int,
 
 			logger.info('--------------------------- Validate Start ------------------------------------')
 			# Evaluate
+
 			model.eval()
 			with torch.no_grad():
 				loss_sum_val = 0
@@ -128,12 +132,22 @@ def train(train_dataloader, val_dataloader, model: torch.nn.Module, epochs: int,
 						writer.add_image('Val_pred_mask', pred_masks[r_idx].cpu().detach().numpy(), dataformats='HW',
 						                 global_step=g_step_val)
 
-			writer.close()
-			util.save_model(model, optimizer, model_path, f'{model.__class__.__name__}_E{e}_{int(loss_sum_val)}.pth',
-			                epoch=e, loss=loss_sum_val, save_num=10)
+
+			for k, v in metrics_val.items():
+				avg_ = v / len(val_dataloader)
+				if best_scores[k] < avg_:
+					best_scores[k] = avg_
+					is_best[k] = True
+			if any(is_best.values()):
+				util.save_model(model, optimizer, model_path, f'{model.__class__.__name__}_E{e}_{int(loss_sum_val)}.pth',
+			                epoch=e, loss=loss_sum_val, metrics=metrics_val, save_num=5)
+				for k in is_best.keys():
+					is_best[k] = False
 			end = time.time()
-			print('{}th epoch is over. Elasped Time:{} min.'.format(e, (end - start) // 60))
-			logger.info('{}th epoch is over. Elasped Time:{} min.'.format(e, (end - start) // 60))
+			print('{}th epoch is over. Elasped Time:{} min. loss average:{} Best scores:{} Current scores:{}'.format(e, (end - start) // 60,
+			      loss_sum_val/len(val_dataloader), best_scores, avg_))
+			logger.info('{}th epoch is over. Elasped Time:{} min. loss average:{} Best scores:{} Current scores:{}'.format(e, (end - start) // 60,
+			      loss_sum_val/len(val_dataloader), best_scores, avg_))
 
 		if scheduler is not None:
 			mlflow.log_param('lr_scheduler', scheduler.__class__)
@@ -141,7 +155,8 @@ def train(train_dataloader, val_dataloader, model: torch.nn.Module, epochs: int,
 			print(f'lr_scheduler:{scheduler.__class__} {scheduler.state_dict()}')
 			logger.info(f'lr_scheduler:{scheduler.__class__} {scheduler.state_dict()}')
 
-
+		writer.close()
 		mlflow.log_artifacts(logs_path, artifact_path="events")
+
 		logger.info(f"Uploading TensorBoard events as a run artifact...")
 		print(f"Uploading TensorBoard events as a run artifact...")
