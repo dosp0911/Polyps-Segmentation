@@ -14,3 +14,16 @@ Some examples of the dataset.
 <img src="https://datasets.simula.no/kvasir-seg/images/mix3.png" width="600px" align="center">
 
 ### Unet, ResUnet, ResUnet++ Model used
+- Each of model is branched
+
+| | Unet | ResUnet | ResUnet++|
+|-----|:------:|:------:|----:|
+|val Iou| 0.64 | 0.65 | 0.78 |
+- DiceLoss, Adam(lr=0.0001) optimizer, epochs=250, batch_size=8
+- Data Augmentation : RandomBright, RandomContrast, Flip, RandomRotate, RandomCrop, RandomShiftScale
+- *Unet*
+![Unet](/assets/Unet.png)
+- *ResUnet*
+![resUnet](/assets/resUnet.PNG)
+- *ResUnet++*
+![ResUnet++](/assets/ResUnet++.PNG)
